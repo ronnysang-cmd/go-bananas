@@ -10,21 +10,71 @@ export default function Home() {
   const [spotifyConnected, setSpotifyConnected] = useState(false)
   const [spotifyQuery, setSpotifyQuery] = useState('')
   const [spotifyResults, setSpotifyResults] = useState([])
+  const [photoLikes, setPhotoLikes] = useState({})
+  const [photoFavorites, setPhotoFavorites] = useState({})
+  const [photoComments, setPhotoComments] = useState({})
 
   useEffect(() => {
-    // Load data from localStorage
+    checkDeviceAuth()
+  }, [])
+
+  const checkDeviceAuth = async () => {
+    let deviceId = localStorage.getItem('device_id')
+    if (!deviceId) {
+      deviceId = Date.now() + '-' + Math.random().toString(36)
+      localStorage.setItem('device_id', deviceId)
+    }
+
+    try {
+      const response = await fetch('/api/auth/check', {
+        headers: { 'x-device-id': deviceId }
+      })
+      const data = await response.json()
+      
+      if (!data.authorized) {
+        document.body.innerHTML = `
+          <div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#000;color:#fff;font-family:Arial;text-align:center">
+            <div>
+              <h1>🔒 Access Restricted</h1>
+              <p>This app requires authorization.</p>
+              <p>Device ID: ${deviceId}</p>
+              <button onclick="requestAccess('${deviceId}')" style="padding:10px 20px;background:#00d4ff;color:white;border:none;border-radius:5px;cursor:pointer">Request Access</button>
+            </div>
+          </div>
+        `
+        window.requestAccess = async (id) => {
+          await fetch('/api/auth/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: id, deviceInfo: navigator.userAgent })
+          })
+          alert('Access requested. Please wait for approval.')
+        }
+        return
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error)
+    }
+
+    // Load data if authorized
     const savedPhotos = JSON.parse(localStorage.getItem('photos') || '[]')
     const savedNotes = JSON.parse(localStorage.getItem('notes') || '[]')
+    const savedLikes = JSON.parse(localStorage.getItem('photoLikes') || '{}')
+    const savedFavorites = JSON.parse(localStorage.getItem('photoFavorites') || '{}')
+    const savedComments = JSON.parse(localStorage.getItem('photoComments') || '{}')
+    
     setPhotos(savedPhotos)
     setNotes(savedNotes)
+    setPhotoLikes(savedLikes)
+    setPhotoFavorites(savedFavorites)
+    setPhotoComments(savedComments)
     
-    // Check if Spotify is already connected
     const spotifyToken = localStorage.getItem('spotify_token')
     const expiresAt = localStorage.getItem('spotify_expires_at')
     if (spotifyToken && expiresAt && Date.now() < parseInt(expiresAt)) {
       setSpotifyConnected(true)
     }
-  }, [])
+  }
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0]
@@ -61,11 +111,17 @@ export default function Home() {
   }
 
   const likePhoto = (photoId) => {
-    console.log('Liked photo:', photoId)
+    const currentLikes = photoLikes[photoId] || 0
+    const newLikes = { ...photoLikes, [photoId]: currentLikes + 1 }
+    setPhotoLikes(newLikes)
+    localStorage.setItem('photoLikes', JSON.stringify(newLikes))
   }
 
   const favoritePhoto = (photoId) => {
-    console.log('Favorited photo:', photoId)
+    const isFavorited = photoFavorites[photoId] || false
+    const newFavorites = { ...photoFavorites, [photoId]: !isFavorited }
+    setPhotoFavorites(newFavorites)
+    localStorage.setItem('photoFavorites', JSON.stringify(newFavorites))
   }
 
   const deletePhoto = (photoId) => {
@@ -73,12 +129,35 @@ export default function Home() {
       const updatedPhotos = photos.filter(p => p.id !== photoId)
       setPhotos(updatedPhotos)
       localStorage.setItem('photos', JSON.stringify(updatedPhotos))
+      
+      // Clean up related data
+      const newLikes = { ...photoLikes }
+      const newFavorites = { ...photoFavorites }
+      const newComments = { ...photoComments }
+      delete newLikes[photoId]
+      delete newFavorites[photoId]
+      delete newComments[photoId]
+      
+      setPhotoLikes(newLikes)
+      setPhotoFavorites(newFavorites)
+      setPhotoComments(newComments)
+      localStorage.setItem('photoLikes', JSON.stringify(newLikes))
+      localStorage.setItem('photoFavorites', JSON.stringify(newFavorites))
+      localStorage.setItem('photoComments', JSON.stringify(newComments))
     }
   }
 
   const addComment = (photoId, comment, input) => {
     if (comment.trim()) {
-      console.log('Added comment to photo:', photoId, comment)
+      const currentComments = photoComments[photoId] || []
+      const newComment = {
+        id: Date.now(),
+        text: comment,
+        timestamp: new Date().toLocaleTimeString()
+      }
+      const updatedComments = { ...photoComments, [photoId]: [...currentComments, newComment] }
+      setPhotoComments(updatedComments)
+      localStorage.setItem('photoComments', JSON.stringify(updatedComments))
       input.value = ''
     }
   }
@@ -123,6 +202,23 @@ export default function Home() {
     
     const tracks = await response.json()
     setSpotifyResults(tracks)
+  }
+
+  const useDefaultAccount = async () => {
+    try {
+      const response = await fetch('/api/spotify/default')
+      const data = await response.json()
+      
+      if (data.token) {
+        setSpotifyConnected(true)
+        localStorage.setItem('spotify_token', data.token)
+        localStorage.setItem('spotify_refresh_token', data.refresh_token)
+        localStorage.setItem('spotify_expires_at', Date.now() + (data.expires_in * 1000))
+        localStorage.setItem('spotify_account_type', 'default')
+      }
+    } catch (error) {
+      alert('Default account not available')
+    }
   }
 
   const playSpotifyTrack = (track) => {
@@ -207,9 +303,13 @@ export default function Home() {
                     <img src={photo.src} alt={photo.name} />
                     <div className="photo-actions">
                       <button className="action-btn like-btn" onClick={() => likePhoto(photo.id)}>
-                        ❤️ <span>0</span>
+                        ❤️ <span>{photoLikes[photo.id] || 0}</span>
                       </button>
-                      <button className="action-btn favorite-btn" onClick={() => favoritePhoto(photo.id)}>
+                      <button 
+                        className="action-btn favorite-btn" 
+                        onClick={() => favoritePhoto(photo.id)}
+                        style={{ color: photoFavorites[photo.id] ? '#00d4ff' : '#ccc' }}
+                      >
                         ⭐
                       </button>
                       <button className="action-btn delete-btn" onClick={() => deletePhoto(photo.id)}>
@@ -217,7 +317,14 @@ export default function Home() {
                       </button>
                     </div>
                     <div className="photo-comments">
-                      <div className="comments-list"></div>
+                      <div className="comments-list">
+                        {(photoComments[photo.id] || []).map(comment => (
+                          <div key={comment.id} className="comment">
+                            <span className="comment-text">{comment.text}</span>
+                            <span className="comment-time">{comment.timestamp}</span>
+                          </div>
+                        ))}
+                      </div>
                       <div className="comment-input-container">
                         <input 
                           type="text" 
@@ -323,7 +430,7 @@ export default function Home() {
             <div className="spotify-section">
               <h3>🎵 Spotify Integration</h3>
               <div className="spotify-auth">
-                <button id="spotifyLoginBtn" onClick={connectSpotify}>Login to Spotify</button>
+                <button onClick={connectSpotify}>Login to Spotify</button>
                 <div className="spotify-status">
                   {spotifyConnected ? '✓ Connected to Spotify' : ''}
                 </div>
