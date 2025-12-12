@@ -20,7 +20,9 @@ export default async function handler(req, res) {
     <script>
       window.opener.postMessage({
         type: 'spotify_auth_success',
-        token: '${data.access_token}'
+        token: '${data.access_token}',
+        refresh_token: '${data.refresh_token || ''}',
+        expires_in: ${data.expires_in || 3600}
       }, '*')
       window.close()
     </script>

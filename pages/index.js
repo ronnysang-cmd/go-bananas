@@ -94,17 +94,23 @@ export default function Home() {
   }
 
   const connectSpotify = () => {
-    const popup = window.open('/api/spotify/login', 'spotify-auth', 'width=500,height=600')
+    window.open('/api/spotify/login', 'spotify-auth', 'width=500,height=600')
     
-    window.addEventListener('message', (event) => {
+    const handleMessage = (event) => {
       if (event.data.type === 'spotify_auth_success') {
         setSpotifyConnected(true)
         localStorage.setItem('spotify_token', event.data.token)
-        localStorage.setItem('spotify_refresh_token', event.data.refresh_token)
-        localStorage.setItem('spotify_expires_at', Date.now() + (event.data.expires_in * 1000))
-        popup.close()
+        if (event.data.refresh_token) {
+          localStorage.setItem('spotify_refresh_token', event.data.refresh_token)
+        }
+        if (event.data.expires_in) {
+          localStorage.setItem('spotify_expires_at', Date.now() + (event.data.expires_in * 1000))
+        }
+        window.removeEventListener('message', handleMessage)
       }
-    })
+    }
+    
+    window.addEventListener('message', handleMessage)
   }
 
   const searchSpotify = async () => {
