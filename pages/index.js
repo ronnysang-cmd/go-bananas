@@ -17,6 +17,13 @@ export default function Home() {
     const savedNotes = JSON.parse(localStorage.getItem('notes') || '[]')
     setPhotos(savedPhotos)
     setNotes(savedNotes)
+    
+    // Check if Spotify is already connected
+    const spotifyToken = localStorage.getItem('spotify_token')
+    const expiresAt = localStorage.getItem('spotify_expires_at')
+    if (spotifyToken && expiresAt && Date.now() < parseInt(expiresAt)) {
+      setSpotifyConnected(true)
+    }
   }, [])
 
   const handlePhotoUpload = (e) => {
@@ -87,38 +94,55 @@ export default function Home() {
   }
 
   const connectSpotify = () => {
-    // Simulate Spotify connection
-    setSpotifyConnected(true)
-    alert('Connected to Spotify! (Demo mode - requires actual Spotify API setup)')
+    const popup = window.open('/api/spotify/login', 'spotify-auth', 'width=500,height=600')
+    
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'spotify_auth_success') {
+        setSpotifyConnected(true)
+        localStorage.setItem('spotify_token', event.data.token)
+        localStorage.setItem('spotify_refresh_token', event.data.refresh_token)
+        localStorage.setItem('spotify_expires_at', Date.now() + (event.data.expires_in * 1000))
+        popup.close()
+      }
+    })
   }
 
-  const searchSpotify = () => {
+  const searchSpotify = async () => {
     if (!spotifyQuery.trim()) return
     
-    // Mock Spotify search results
-    const mockResults = [
-      {
-        id: '1',
-        title: spotifyQuery + ' - Song 1',
-        artist: 'Artist Name',
-        album: 'Album Name',
-        image: 'https://via.placeholder.com/50x50/00d4ff/ffffff?text=♪',
-        preview: null
-      },
-      {
-        id: '2', 
-        title: spotifyQuery + ' - Song 2',
-        artist: 'Another Artist',
-        album: 'Another Album',
-        image: 'https://via.placeholder.com/50x50/00d4ff/ffffff?text=♫',
-        preview: null
-      }
-    ]
-    setSpotifyResults(mockResults)
+    const token = localStorage.getItem('spotify_token')
+    const response = await fetch(`/api/spotify/search?q=${encodeURIComponent(spotifyQuery)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    const tracks = await response.json()
+    setSpotifyResults(tracks)
   }
 
   const playSpotifyTrack = (track) => {
-    alert(`Playing: ${track.title} by ${track.artist}\n(Demo mode - requires Spotify Premium for actual playback)`)
+    const token = localStorage.getItem('spotify_token')
+    
+    // Try full song playback (requires Premium)
+    fetch(`https://api.spotify.com/v1/me/player/play`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        uris: [track.uri]
+      })
+    }).then(response => {
+      if (!response.ok) {
+        // Fallback to 30-second preview
+        if (track.preview) {
+          const audio = new Audio(track.preview)
+          audio.play()
+        } else {
+          alert('Spotify Premium required for full songs. No preview available.')
+        }
+      }
+    })
   }
 
   return (

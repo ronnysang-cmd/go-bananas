@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
+    "dev:https": "node server-https.js",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
     "next": "14.0.0",
     "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react-dom": "18.2.0",
+    "https": "^1.0.0"
   }
 }
