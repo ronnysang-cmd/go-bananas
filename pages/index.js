@@ -7,6 +7,9 @@ export default function Home() {
   const [notes, setNotes] = useState([])
   const [noteTitle, setNoteTitle] = useState('')
   const [noteContent, setNoteContent] = useState('')
+  const [spotifyConnected, setSpotifyConnected] = useState(false)
+  const [spotifyQuery, setSpotifyQuery] = useState('')
+  const [spotifyResults, setSpotifyResults] = useState([])
 
   useEffect(() => {
     // Load data from localStorage
@@ -81,6 +84,41 @@ export default function Home() {
 
   const addEmojiToNotes = (emoji) => {
     setNoteContent(prev => prev + emoji)
+  }
+
+  const connectSpotify = () => {
+    // Simulate Spotify connection
+    setSpotifyConnected(true)
+    alert('Connected to Spotify! (Demo mode - requires actual Spotify API setup)')
+  }
+
+  const searchSpotify = () => {
+    if (!spotifyQuery.trim()) return
+    
+    // Mock Spotify search results
+    const mockResults = [
+      {
+        id: '1',
+        title: spotifyQuery + ' - Song 1',
+        artist: 'Artist Name',
+        album: 'Album Name',
+        image: 'https://via.placeholder.com/50x50/00d4ff/ffffff?text=♪',
+        preview: null
+      },
+      {
+        id: '2', 
+        title: spotifyQuery + ' - Song 2',
+        artist: 'Another Artist',
+        album: 'Another Album',
+        image: 'https://via.placeholder.com/50x50/00d4ff/ffffff?text=♫',
+        preview: null
+      }
+    ]
+    setSpotifyResults(mockResults)
+  }
+
+  const playSpotifyTrack = (track) => {
+    alert(`Playing: ${track.title} by ${track.artist}\n(Demo mode - requires Spotify Premium for actual playback)`)
   }
 
   return (
@@ -242,12 +280,48 @@ export default function Home() {
         <div className={`tab-content ${activeTab === 'music' ? 'active' : ''}`} id="music-tab">
           <div className="music-section">
             <h2>🎵 My Music</h2>
+            
             <div className="music-upload">
               <div className="upload-area music-upload-area">
                 <div className="upload-content">
                   <span className="upload-icon">🎵</span>
                   <p>Upload your music files (MP3, WAV, etc.)</p>
                 </div>
+              </div>
+            </div>
+
+            <div className="spotify-section">
+              <h3>🎵 Spotify Integration</h3>
+              <div className="spotify-auth">
+                <button id="spotifyLoginBtn" onClick={connectSpotify}>Login to Spotify</button>
+                <div className="spotify-status">
+                  {spotifyConnected ? '✓ Connected to Spotify' : ''}
+                </div>
+              </div>
+              {spotifyConnected && (
+                <div className="search-controls">
+                  <input 
+                    type="text" 
+                    placeholder="Search Spotify for songs, artists..."
+                    value={spotifyQuery}
+                    onChange={(e) => setSpotifyQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && searchSpotify()}
+                  />
+                  <button onClick={searchSpotify}>Search</button>
+                </div>
+              )}
+              <div className="search-results">
+                {spotifyResults.map(track => (
+                  <div key={track.id} className="search-result-item" onClick={() => playSpotifyTrack(track)}>
+                    <img src={track.image} alt="Album art" className="album-art" />
+                    <div className="track-details">
+                      <h4>{track.title}</h4>
+                      <p>{track.artist}</p>
+                      <small>{track.album}</small>
+                    </div>
+                    <button className="play-preview">🎵</button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
