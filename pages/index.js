@@ -50,6 +50,39 @@ export default function Home() {
     }
   }
 
+  const likePhoto = (photoId) => {
+    console.log('Liked photo:', photoId)
+  }
+
+  const favoritePhoto = (photoId) => {
+    console.log('Favorited photo:', photoId)
+  }
+
+  const deletePhoto = (photoId) => {
+    if (confirm('Delete this photo?')) {
+      const updatedPhotos = photos.filter(p => p.id !== photoId)
+      setPhotos(updatedPhotos)
+      localStorage.setItem('photos', JSON.stringify(updatedPhotos))
+    }
+  }
+
+  const addComment = (photoId, comment, input) => {
+    if (comment.trim()) {
+      console.log('Added comment to photo:', photoId, comment)
+      input.value = ''
+    }
+  }
+
+  const addEmoji = (e, emoji) => {
+    const input = e.target.closest('.photo-comments').querySelector('.comment-input')
+    input.value += emoji
+    input.focus()
+  }
+
+  const addEmojiToNotes = (emoji) => {
+    setNoteContent(prev => prev + emoji)
+  }
+
   return (
     <>
       <Head>
@@ -104,6 +137,37 @@ export default function Home() {
                 photos.map(photo => (
                   <div key={photo.id} className="photo-item">
                     <img src={photo.src} alt={photo.name} />
+                    <div className="photo-actions">
+                      <button className="action-btn like-btn" onClick={() => likePhoto(photo.id)}>
+                        ❤️ <span>0</span>
+                      </button>
+                      <button className="action-btn favorite-btn" onClick={() => favoritePhoto(photo.id)}>
+                        ⭐
+                      </button>
+                      <button className="action-btn delete-btn" onClick={() => deletePhoto(photo.id)}>
+                        🗑️
+                      </button>
+                    </div>
+                    <div className="photo-comments">
+                      <div className="comments-list"></div>
+                      <div className="comment-input-container">
+                        <input 
+                          type="text" 
+                          className="comment-input" 
+                          placeholder="Add a comment..."
+                          onKeyPress={(e) => e.key === 'Enter' && addComment(photo.id, e.target.value, e.target)}
+                        />
+                        <div className="comment-emoji-picker">
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '😀')}>😀</button>
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '😍')}>😍</button>
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '👍')}>👍</button>
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '❤️')}>❤️</button>
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '🎉')}>🎉</button>
+                          <button type="button" className="emoji-btn" onClick={(e) => addEmoji(e, '🔥')}>🔥</button>
+                        </div>
+                      </div>
+                      <button className="add-comment" onClick={(e) => addComment(photo.id, e.target.previousElementSibling.querySelector('.comment-input').value, e.target.previousElementSibling.querySelector('.comment-input'))}>Comment</button>
+                    </div>
                   </div>
                 ))
               )}
@@ -122,12 +186,24 @@ export default function Home() {
                 onChange={(e) => setNoteTitle(e.target.value)}
                 id="noteTitle"
               />
-              <textarea 
-                placeholder="Write your notes here..."
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-                id="notesArea"
-              />
+              <div className="textarea-container">
+                <textarea 
+                  placeholder="Write your notes here..."
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  id="notesArea"
+                />
+                <div className="emoji-picker">
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('😀')}>😀</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('😍')}>😍</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('🤔')}>🤔</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('👍')}>👍</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('❤️')}>❤️</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('🎉')}>🎉</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('🔥')}>🔥</button>
+                  <button type="button" className="emoji-btn" onClick={() => addEmojiToNotes('💡')}>💡</button>
+                </div>
+              </div>
               <button onClick={saveNote} id="saveNotes">Save Note</button>
             </div>
             <div className="saved-notes">
