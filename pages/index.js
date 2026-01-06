@@ -13,6 +13,8 @@ export default function Home() {
   const [photoLikes, setPhotoLikes] = useState({})
   const [photoFavorites, setPhotoFavorites] = useState({})
   const [photoComments, setPhotoComments] = useState({})
+  const [userId, setUserId] = useState('')
+  const [showRecovery, setShowRecovery] = useState(false)
 
   useEffect(() => {
     checkDeviceAuth()
@@ -57,6 +59,13 @@ export default function Home() {
     }
 
     // Load data if authorized
+    let savedUserId = localStorage.getItem('userId')
+    if (!savedUserId) {
+      savedUserId = 'user_' + Date.now()
+      localStorage.setItem('userId', savedUserId)
+    }
+    setUserId(savedUserId)
+    
     const savedPhotos = JSON.parse(localStorage.getItem('photos') || '[]')
     const savedNotes = JSON.parse(localStorage.getItem('notes') || '[]')
     const savedLikes = JSON.parse(localStorage.getItem('photoLikes') || '{}')
@@ -68,6 +77,13 @@ export default function Home() {
     setPhotoLikes(savedLikes)
     setPhotoFavorites(savedFavorites)
     setPhotoComments(savedComments)
+    
+    // Auto-backup every 30 seconds
+    const backupInterval = setInterval(() => {
+      backupToCloud(savedUserId)
+    }, 30000)
+    
+    return () => clearInterval(backupInterval)
     
     const spotifyToken = localStorage.getItem('spotify_token')
     const expiresAt = localStorage.getItem('spotify_expires_at')
@@ -221,6 +237,49 @@ export default function Home() {
     }
   }
 
+  const backupToCloud = async (userIdToBackup) => {
+    try {
+      const backupData = {
+        photos: JSON.parse(localStorage.getItem('photos') || '[]'),
+        notes: JSON.parse(localStorage.getItem('notes') || '[]'),
+        photoLikes: JSON.parse(localStorage.getItem('photoLikes') || '{}'),
+        photoFavorites: JSON.parse(localStorage.getItem('photoFavorites') || '{}'),
+        photoComments: JSON.parse(localStorage.getItem('photoComments') || '{}')
+      }
+      
+      await fetch('/api/backup/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userIdToBackup, data: backupData })
+      })
+    } catch (error) {
+      console.error('Backup failed:', error)
+    }
+  }
+
+  const recoverFromCloud = async (recoveryUserId) => {
+    try {
+      const response = await fetch(`/api/backup/save?userId=${recoveryUserId}`)
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        localStorage.setItem('photos', JSON.stringify(result.data.photos || []))
+        localStorage.setItem('notes', JSON.stringify(result.data.notes || []))
+        localStorage.setItem('photoLikes', JSON.stringify(result.data.photoLikes || {}))
+        localStorage.setItem('photoFavorites', JSON.stringify(result.data.photoFavorites || {}))
+        localStorage.setItem('photoComments', JSON.stringify(result.data.photoComments || {}))
+        localStorage.setItem('userId', recoveryUserId)
+        
+        // Reload page to show recovered data
+        window.location.reload()
+      } else {
+        alert('No backup found for this User ID')
+      }
+    } catch (error) {
+      alert('Recovery failed: ' + error.message)
+    }
+  }
+
   const playSpotifyTrack = (track) => {
     const token = localStorage.getItem('spotify_token')
     
@@ -257,6 +316,31 @@ export default function Home() {
       <div className="container">
         <header>
           <h1>🍌 Go Bananas</h1>
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <p style={{ fontSize: '0.9rem', color: '#888' }}>Your ID: {userId}</p>
+            <button 
+              onClick={() => setShowRecovery(!showRecovery)}
+              style={{ padding: '5px 10px', background: '#333', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              {showRecovery ? 'Hide Recovery' : 'Recover Data'}
+            </button>
+            {showRecovery && (
+              <div style={{ marginTop: '10px' }}>
+                <input 
+                  type="text" 
+                  placeholder="Enter your User ID" 
+                  onKeyPress={(e) => e.key === 'Enter' && recoverFromCloud(e.target.value)}
+                  style={{ padding: '5px', marginRight: '5px', borderRadius: '3px', border: '1px solid #333' }}
+                />
+                <button 
+                  onClick={(e) => recoverFromCloud(e.target.previousElementSibling.value)}
+                  style={{ padding: '5px 10px', background: '#00d4ff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                >
+                  Recover
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="tabs">
